@@ -8,6 +8,14 @@ export const getMySubscription = async (
   try {
     const userId = req.user?.userId;
 
+    if (!userId) {
+      res.status(401).json({
+        success: false,
+        message: "Authentication required",
+      });
+      return;
+    }
+
     const tutor = await Tutor.findOne({
       user: userId,
     }).select(
@@ -24,7 +32,7 @@ export const getMySubscription = async (
 
     const now = new Date();
 
-    // Update expired trial
+    // Check trial expiration
     if (
       tutor.subscriptionStatus === "trial" &&
       tutor.trialEndDate &&
@@ -34,7 +42,7 @@ export const getMySubscription = async (
       await tutor.save();
     }
 
-    // Update expired paid subscription
+    // Check paid subscription expiration
     if (
       tutor.subscriptionStatus === "active" &&
       tutor.subscriptionEndDate &&
