@@ -2,23 +2,24 @@ import { Router } from "express";
 
 import { applyForTutor } from "./tutor.controller";
 import { getMySubscription } from "./subscription.controller";
+import { createSubscriptionPayment } from "./payment.controller";
 
 import { authenticateUser } from "../../middlewares/auth.middleware";
 
 const router = Router();
 
-// Apply to become a tutor
-router.post(
-  "/apply",
-  authenticateUser,
-  applyForTutor
-);
+router.post("/apply", authenticateUser, applyForTutor);
 
-// Get tutor subscription information
 router.get(
   "/subscription/me",
   authenticateUser,
   getMySubscription
+);
+
+router.post(
+  "/subscription/payment",
+  authenticateUser,
+  createSubscriptionPayment
 );
 
 export default router;
