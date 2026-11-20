@@ -5,8 +5,12 @@ import {
   loginUser,
 } from "./auth.controller";
 
-import { getMyProfile } from "./auth.profile.controller";
 import { authenticateUser } from "../../middlewares/auth.middleware";
+
+import {
+  getMyProfile,
+  updateMyProfile,
+} from "./auth.profile.controller";
 
 const router = Router();
 
@@ -16,5 +20,6 @@ router.post("/login", loginUser);
 
 // Protected routes
 router.get("/me", authenticateUser, getMyProfile);
+router.patch("/me", authenticateUser, updateMyProfile);
 
 export default router;

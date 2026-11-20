@@ -1,9 +1,11 @@
 import { Request, Response } from "express";
+import { FilterQuery } from "mongoose";
 
-import Tutor from "../../models/tutor.model";
+import Tutor, { ITutor } from "../../models/tutor.model";
 import User from "../../models/user.model";
 
 import { tutorApplicationSchema } from "../../validators/tutor.validator";
+
 
 export const applyForTutor = async (
   req: Request,
@@ -90,6 +92,149 @@ export const applyForTutor = async (
     res.status(500).json({
       success: false,
       message: "Internal server error",
+    });
+  }
+};
+
+export const getApprovedTutors = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  try {
+    // Pagination
+    const page = Math.max(1, Number(req.query.page) || 1);
+
+    const limit = Math.min(
+      50,
+      Math.max(1, Number(req.query.limit) || 10)
+    );
+
+    const skip = (page - 1) * limit;
+
+    // Search and filter parameters
+    const search = String(req.query.search || "").trim();
+    const city = String(req.query.city || "").trim();
+    const subject = String(req.query.subject || "").trim();
+
+    const minExperience = Number(req.query.minExperience);
+    const maxSalary = Number(req.query.maxSalary);
+
+    // Only approved tutors
+    const filter: FilterQuery<ITutor> = {
+      applicationStatus: "approved",
+    };
+
+    // Filter by city
+    if (city) {
+      filter.city = {
+        $regex: city,
+        $options: "i",
+      };
+    }
+
+    // Filter by subject
+    if (subject) {
+      filter.subjects = {
+        $regex: subject,
+        $options: "i",
+      };
+    }
+
+    // Filter by minimum experience
+    if (
+      req.query.minExperience !== undefined &&
+      Number.isFinite(minExperience)
+    ) {
+      filter.experience = {
+        $gte: Math.max(0, minExperience),
+      };
+    }
+
+    // Filter by maximum monthly salary
+    if (
+      req.query.maxSalary !== undefined &&
+      Number.isFinite(maxSalary)
+    ) {
+      filter.expectedSalary = {
+        $lte: Math.max(0, maxSalary),
+      };
+    }
+
+    // Search by tutor information
+    if (search) {
+      const safeSearch = search.replace(
+        /[.*+?^${}()|[\]\\]/g,
+        "\\$&"
+      );
+
+      filter.$or = [
+        {
+          bio: {
+            $regex: safeSearch,
+            $options: "i",
+          },
+        },
+        {
+          qualifications: {
+            $regex: safeSearch,
+            $options: "i",
+          },
+        },
+        {
+          subjects: {
+            $regex: safeSearch,
+            $options: "i",
+          },
+        },
+        {
+          city: {
+            $regex: safeSearch,
+            $options: "i",
+          },
+        },
+        {
+          area: {
+            $regex: safeSearch,
+            $options: "i",
+          },
+        },
+      ];
+    }
+
+    // Get total matching tutors
+    const total = await Tutor.countDocuments(filter);
+
+    // Retrieve approved tutors
+    const tutors = await Tutor.find(filter)
+      .select(
+        "bio qualifications subjects experience city area expectedSalary createdAt user"
+      )
+      .populate({
+        path: "user",
+        select: "fullName",
+      })
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean();
+
+    res.status(200).json({
+      success: true,
+      message: "Approved tutors retrieved successfully",
+      data: tutors,
+      pagination: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+    });
+  } catch (error) {
+    console.error("Get approved tutors error:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Failed to retrieve tutors",
     });
   }
 };
