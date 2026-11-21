@@ -4,11 +4,16 @@ import Tutor, { ITutor } from "../../models/tutor.model";
 import User from "../../models/user.model";
 import { tutorApplicationSchema } from "../../validators/tutor.validator";
 
+// ==========================================
+// APPLY FOR TUTOR
+// ==========================================
 
 export const applyForTutor = async (
   req: Request,
   res: Response
 ): Promise<void> => {
+  let uploadedFilename: string | undefined;
+
   try {
     const userId = req.user?.userId;
 
@@ -19,6 +24,16 @@ export const applyForTutor = async (
       });
       return;
     }
+
+    const uploadedFile = (
+      req as Request & {
+        file?: {
+          filename?: string;
+        };
+      }
+    ).file;
+
+    uploadedFilename = uploadedFile?.filename;
 
     const user = await User.findById(userId);
 
@@ -50,18 +65,9 @@ export const applyForTutor = async (
       return;
     }
 
-    // Uploaded file metadata supplied by the private upload middleware.
-    const uploadedFile = (
-      req as Request & {
-        file?: {
-          filename?: string;
-        };
-      }
-    ).file;
-
     const applicationData = {
       ...req.body,
-      studentIdCardImage: uploadedFile?.filename,
+      studentIdCardImage: uploadedFilename,
     };
 
     const validation =
@@ -76,10 +82,31 @@ export const applyForTutor = async (
       return;
     }
 
+    const {
+      bio,
+      qualifications,
+      subjects,
+      experience,
+      city,
+      area,
+      expectedSalary,
+      nidNumber,
+      isCurrentlyStudent,
+      studentIdCardImage,
+    } = validation.data;
+
     const tutor = await Tutor.create({
       user: userId,
-      ...validation.data,
-
+      bio,
+      qualifications,
+      subjects,
+      experience,
+      city,
+      area,
+      expectedSalary,
+      nidNumber,
+      isCurrentlyStudent,
+      studentIdCardImage,
       applicationStatus: "pending",
       subscriptionStatus: "not_started",
       hasUsedFreeTrial: false,
@@ -104,6 +131,10 @@ export const applyForTutor = async (
     });
   }
 };
+
+// ==========================================
+// GET APPROVED TUTORS
+// ==========================================
 
 export const getApprovedTutors = async (
   req: Request,

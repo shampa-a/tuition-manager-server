@@ -13,6 +13,7 @@ import { getMySubscription } from "./subscription.controller";
 import { createSubscriptionPayment } from "./payment.controller";
 
 import { authenticateUser } from "../../middlewares/auth.middleware";
+import { uploadStudentIdCard } from "../../middlewares/studentIdUpload.middleware";
 
 const router = Router();
 
@@ -32,7 +33,12 @@ router.patch(
 router.get("/", getApprovedTutors);
 
 // Tutor application
-router.post("/apply", authenticateUser, applyForTutor);
+router.post(
+  "/apply",
+  authenticateUser,
+  uploadStudentIdCard.single("studentIdCard"),
+  applyForTutor
+);
 
 // Subscription
 router.get(
