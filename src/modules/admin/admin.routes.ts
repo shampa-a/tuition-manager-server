@@ -2,6 +2,7 @@ import { Router } from "express";
 
 import {
   getPendingTutors,
+  getTutorApplicationById,
   approveTutor,
   rejectTutor,
 } from "./admin.controller";
@@ -16,6 +17,9 @@ router.use(authenticateUser, authorizeRoles("admin"));
 
 // Get pending tutor applications
 router.get("/tutors/pending", getPendingTutors);
+
+// Get individual tutor application details
+router.get("/tutors/:tutorId", getTutorApplicationById);
 
 // Approve tutor
 router.patch("/tutors/:tutorId/approve", approveTutor);

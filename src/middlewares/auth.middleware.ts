@@ -52,6 +52,7 @@ export const authenticateUser = (
       userId: decoded.userId,
       role: decoded.role,
     };
+    
 
     next();
   } catch (error) {

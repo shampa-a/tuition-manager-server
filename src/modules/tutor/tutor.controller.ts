@@ -1,9 +1,7 @@
 import { Request, Response } from "express";
 import { FilterQuery } from "mongoose";
-
 import Tutor, { ITutor } from "../../models/tutor.model";
 import User from "../../models/user.model";
-
 import { tutorApplicationSchema } from "../../validators/tutor.validator";
 
 
@@ -12,7 +10,6 @@ export const applyForTutor = async (
   res: Response
 ): Promise<void> => {
   try {
-    // Check authenticated user
     const userId = req.user?.userId;
 
     if (!userId) {
@@ -23,7 +20,6 @@ export const applyForTutor = async (
       return;
     }
 
-    // Find user
     const user = await User.findById(userId);
 
     if (!user) {
@@ -34,7 +30,6 @@ export const applyForTutor = async (
       return;
     }
 
-    // Only students can apply
     if (user.role !== "student") {
       res.status(403).json({
         success: false,
@@ -43,19 +38,6 @@ export const applyForTutor = async (
       return;
     }
 
-    // Validate application
-    const validation = tutorApplicationSchema.safeParse(req.body);
-
-    if (!validation.success) {
-      res.status(400).json({
-        success: false,
-        message: "Validation failed",
-        errors: validation.error.flatten(),
-      });
-      return;
-    }
-
-    // Check previous application
     const existingApplication = await Tutor.findOne({
       user: userId,
     });
@@ -68,23 +50,50 @@ export const applyForTutor = async (
       return;
     }
 
-    // Create tutor application
+    // Uploaded file metadata supplied by the private upload middleware.
+    const uploadedFile = (
+      req as Request & {
+        file?: {
+          filename?: string;
+        };
+      }
+    ).file;
+
+    const applicationData = {
+      ...req.body,
+      studentIdCardImage: uploadedFile?.filename,
+    };
+
+    const validation =
+      tutorApplicationSchema.safeParse(applicationData);
+
+    if (!validation.success) {
+      res.status(400).json({
+        success: false,
+        message: "Validation failed",
+        errors: validation.error.flatten(),
+      });
+      return;
+    }
+
     const tutor = await Tutor.create({
       user: userId,
       ...validation.data,
 
       applicationStatus: "pending",
-
-      // Trial starts only after admin approval
       subscriptionStatus: "not_started",
-
       hasUsedFreeTrial: false,
     });
 
     res.status(201).json({
       success: true,
       message: "Tutor application submitted successfully",
-      data: tutor,
+      data: {
+        _id: tutor._id,
+        applicationStatus: tutor.applicationStatus,
+        subscriptionStatus: tutor.subscriptionStatus,
+        createdAt: tutor.createdAt,
+      },
     });
   } catch (error) {
     console.error("Tutor application error:", error);
@@ -101,7 +110,6 @@ export const getApprovedTutors = async (
   res: Response
 ): Promise<void> => {
   try {
-    // Pagination
     const page = Math.max(1, Number(req.query.page) || 1);
 
     const limit = Math.min(
@@ -111,7 +119,6 @@ export const getApprovedTutors = async (
 
     const skip = (page - 1) * limit;
 
-    // Search and filter parameters
     const search = String(req.query.search || "").trim();
     const city = String(req.query.city || "").trim();
     const subject = String(req.query.subject || "").trim();
@@ -119,12 +126,10 @@ export const getApprovedTutors = async (
     const minExperience = Number(req.query.minExperience);
     const maxSalary = Number(req.query.maxSalary);
 
-    // Only approved tutors
     const filter: FilterQuery<ITutor> = {
       applicationStatus: "approved",
     };
 
-    // Filter by city
     if (city) {
       filter.city = {
         $regex: city,
@@ -132,7 +137,6 @@ export const getApprovedTutors = async (
       };
     }
 
-    // Filter by subject
     if (subject) {
       filter.subjects = {
         $regex: subject,
@@ -140,7 +144,6 @@ export const getApprovedTutors = async (
       };
     }
 
-    // Filter by minimum experience
     if (
       req.query.minExperience !== undefined &&
       Number.isFinite(minExperience)
@@ -150,7 +153,6 @@ export const getApprovedTutors = async (
       };
     }
 
-    // Filter by maximum monthly salary
     if (
       req.query.maxSalary !== undefined &&
       Number.isFinite(maxSalary)
@@ -160,7 +162,6 @@ export const getApprovedTutors = async (
       };
     }
 
-    // Search by tutor information
     if (search) {
       const safeSearch = search.replace(
         /[.*+?^${}()|[\]\\]/g,
@@ -168,43 +169,16 @@ export const getApprovedTutors = async (
       );
 
       filter.$or = [
-        {
-          bio: {
-            $regex: safeSearch,
-            $options: "i",
-          },
-        },
-        {
-          qualifications: {
-            $regex: safeSearch,
-            $options: "i",
-          },
-        },
-        {
-          subjects: {
-            $regex: safeSearch,
-            $options: "i",
-          },
-        },
-        {
-          city: {
-            $regex: safeSearch,
-            $options: "i",
-          },
-        },
-        {
-          area: {
-            $regex: safeSearch,
-            $options: "i",
-          },
-        },
+        { bio: { $regex: safeSearch, $options: "i" } },
+        { qualifications: { $regex: safeSearch, $options: "i" } },
+        { subjects: { $regex: safeSearch, $options: "i" } },
+        { city: { $regex: safeSearch, $options: "i" } },
+        { area: { $regex: safeSearch, $options: "i" } },
       ];
     }
 
-    // Get total matching tutors
     const total = await Tutor.countDocuments(filter);
 
-    // Retrieve approved tutors
     const tutors = await Tutor.find(filter)
       .select(
         "bio qualifications subjects experience city area expectedSalary createdAt user"

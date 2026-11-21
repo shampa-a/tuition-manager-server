@@ -24,6 +24,11 @@ export interface ITutor {
 
   expectedSalary: number;
 
+  // Identity verification
+  nidNumber: string;
+  isCurrentlyStudent: boolean;
+  studentIdCardImage?: string;
+
   applicationStatus: TutorApplicationStatus;
   rejectionReason?: string;
 
@@ -92,6 +97,30 @@ const tutorSchema = new Schema<ITutor>(
       min: 0,
     },
 
+    // NID is required for every tutor applicant.
+    // select:false prevents accidental inclusion in ordinary queries.
+    nidNumber: {
+      type: String,
+      required: true,
+      trim: true,
+      select: false,
+    },
+
+    isCurrentlyStudent: {
+      type: Boolean,
+      required: true,
+    },
+
+    // Store a private storage key, not a publicly accessible image URL.
+    // Required only when the applicant is currently a student.
+    studentIdCardImage: {
+      type: String,
+      required: function (this: ITutor) {
+        return this.isCurrentlyStudent;
+      },
+      select: false,
+    },
+
     applicationStatus: {
       type: String,
       enum: ["pending", "approved", "rejected"],
@@ -110,11 +139,9 @@ const tutorSchema = new Schema<ITutor>(
     },
 
     trialStartDate: Date,
-
     trialEndDate: Date,
 
     subscriptionStartDate: Date,
-
     subscriptionEndDate: Date,
 
     hasUsedFreeTrial: {
